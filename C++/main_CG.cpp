@@ -94,7 +94,7 @@ public:
   int thrust;
   int ang_deg;
   int CheckpointIndex;
-
+  bool isAngleSet;
 public:
   Car(const Vec2d<float>& i_pos){
     pos=i_pos;
@@ -102,9 +102,21 @@ public:
     thrust=0;
     ang_deg=0;
     CheckpointIndex=0;
+    isAngleSet=false;
   }
   void update(const Vec2d<float>& i_Target,const int& i_thrust){
     float new_ang_rad=atan2(i_Target.y-pos.y,i_Target.x-pos.x);
+    if(isAngleSet){
+      float new_ang_deg=degrees(new_ang_rad);
+      if(new_ang_deg-ang_deg > 18){
+        new_ang_deg=ang_deg+18;
+        new_ang_rad=radians(new_ang_deg);
+      }
+      if(new_ang_deg-ang_deg < -18){
+        new_ang_deg=ang_deg-18;
+        new_ang_rad=radians(new_ang_deg);
+      }
+    }
     update(new_ang_rad,i_thrust);
   }
 
@@ -130,6 +142,7 @@ public:
     vel.x=truncate(inter_vel.x);vel.y=truncate(inter_vel.y);
     thrust=i_thrust;
     ang_deg=round(degrees(i_new_ang_rad));
+    isAngleSet=true;
   }
 
   const Vec2d<float>& getPos(){
@@ -148,7 +161,7 @@ public:
     // cout << "Dir: "; dir.print();
     cout << " Pos: "; pos.print();
     cout << " Vel: "; vel.print();
-    // cout << " Acc: "; acc.print();
+    cout << " Ang: " << ang_deg;
     cout << endl;
 
   }
@@ -168,31 +181,37 @@ float dist(const Vec2d<float>& P1,const Vec2d<int>& P2){
 
 int main(){
 
-  int checkpoints; // Count of checkpoints to read
-  cin >> checkpoints; cin.ignore();
-
-  // vector<Checkpoint> cp(checkpoints);
-
-  for (int i = 0; i < checkpoints; i++) {
-      int checkpointX; // Position X
-      int checkpointY; // Position Y
-      cin >> checkpointX >> checkpointY; cin.ignore();
-      v_CP.emplace_back(Checkpoint(Vec2d<int>(checkpointX,checkpointY),i));
-  }
+  // int checkpoints; // Count of checkpoints to read
+  // cin >> checkpoints; cin.ignore();
+  //
+  // // vector<Checkpoint> cp(checkpoints);
+  //
+  // for (int i = 0; i < checkpoints; i++) {
+  //     int checkpointX; // Position X
+  //     int checkpointY; // Position Y
+  //     cin >> checkpointX >> checkpointY; cin.ignore();
+  //     v_CP.emplace_back(Checkpoint(Vec2d<int>(checkpointX,checkpointY),i));
+  // }
 
   // game loop
-  while (1) {
-      int checkpointIndex; // Index of the checkpoint to lookup in the checkpoints input, initially 0
-      int x; // Position X
-      int y; // Position Y
-      int vx; // horizontal speed. Positive is right
-      int vy; // vertical speed. Positive is downwards
-      int angle; // facing angle of this car
-      cin >> checkpointIndex >> x >> y >> vx >> vy >> angle; cin.ignore();
-
-      // cout << cp[checkpointIndex].pos.x << " " << cp[checkpointIndex].pos.y << " " << 100;
-      // cout << " debug" << endl;
+  // while (1) {
+  //     int checkpointIndex; // Index of the checkpoint to lookup in the checkpoints input, initially 0
+  //     int x; // Position X
+  //     int y; // Position Y
+  //     int vx; // horizontal speed. Positive is right
+  //     int vy; // vertical speed. Positive is downwards
+  //     int angle; // facing angle of this car
+  //     cin >> checkpointIndex >> x >> y >> vx >> vy >> angle; cin.ignore();
+  //
+  //     // cout << cp[checkpointIndex].pos.x << " " << cp[checkpointIndex].pos.y << " " << 100;
+  //     // cout << " debug" << endl;
+  // }
+  Car iCar(Vec2d<float>(10353,1986));
+  for(int i=0;i<20;++i){
+    iCar.update(Vec2d<float>(2757,4659),100);
+    iCar.debug();
   }
+
 
   return 0;
 };
