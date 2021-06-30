@@ -10,22 +10,22 @@ void setup(){
   size(1600,900);
   bg=loadImage("../img/road_1600x900.jpg");
   
-  c=new Car(new PVector(width/2,height/2),0);
-  cp=new Checkpoint(new PVector(100,100),1);
+  c=new Car(new PVector(1035.3,198.6),0);
+  //cp=new Checkpoint(new PVector(100,100),1);
   print("Initial");
   c.debug();
 }
 void draw(){
   background(bg);
 
-  if (COUNTER < 10){
-    c.update(2);
+  if (COUNTER < 20){
+    c.update(new PVector(275.7,465.9),10);
     ++COUNTER;
     print("Counter-",COUNTER," ");
     c.debug();
   }
     c.show();    
-    cp.show();
+    //cp.show();
 }
 void mouseClicked(){
   c.debug();
@@ -38,6 +38,7 @@ class Car{
   // display vars
   color c;
   float w,h;// a rectangle
+  boolean isAngleSet;
   
   Car(PVector ipos,float idir){
     pos=ipos;ang_deg=idir;
@@ -45,7 +46,8 @@ class Car{
     thrust=0;
     float ang_rad=radians(ang_deg);
     DirVec=new PVector(cos(ang_rad),sin(ang_rad));
-
+    isAngleSet=false;
+    
     c='b';
     w=70;h=40;
   }
@@ -65,19 +67,30 @@ class Car{
   void setPosition(PVector ip){
     pos=ip;
   }
-  void update(int ithrust){
-    thrust=ithrust;
+  void update(PVector i_Target,int i_thrust){
+    float new_ang_rad=atan2(i_Target.y-pos.y,i_Target.x-pos.x);
+    if(isAngleSet){
+      float new_ang_deg=degrees(new_ang_rad);
+      if(new_ang_deg-ang_deg > 18){
+        new_ang_deg=ang_deg+18;
+        new_ang_rad=radians(new_ang_deg);
+      }
+      if(new_ang_deg-ang_deg < -18){
+        new_ang_deg=ang_deg-18;
+        new_ang_rad=radians(new_ang_deg);
+      }
+    }
+    update(new_ang_rad,i_thrust);
+  }
+  
+  void update(float i_ang_rad,int i_thrust){
     // car angle is updated using setAngle
-    float ang_rad=radians(ang_deg);
-    DirVec=new PVector(cos(ang_rad),sin(ang_rad));
+    DirVec=new PVector(cos(i_ang_rad),sin(i_ang_rad));
     PVector Acc=DirVec.copy();
-    Acc.mult(thrust);
+    Acc.mult(i_thrust);
     //println("Thrust=",thrust," DirVec=",DirVec," Accel=",Acc);
     vel.add(Acc);
-    
-    // Is this right?
-    //vel.mult(SCALE);
-    
+        
     pos.add(vel);
     //println(DirVec,vel,pos);
     
@@ -85,7 +98,8 @@ class Car{
     
     pos.x=truncate(pos.x);pos.y=truncate(pos.y);
     vel.x=truncate(vel.x);vel.y=truncate(vel.y);
-    ang_deg=round(ang_deg);
+    ang_deg=round(degrees(i_ang_rad));
+    isAngleSet=true;
   }
   
   PVector getPos(){
@@ -107,7 +121,7 @@ class Car{
     return DirVec;
   }
   void debug(){
-    println("Dir",DirVec," Pos: ",pos," Vel: ",vel," Acc: ",getAcc());    
+    println(" Pos: ",pos," Vel: ",vel,"Ang:",ang_deg);    
   }
 
 };
@@ -146,11 +160,13 @@ class Checkpoint{
   
 };
 
-int truncate(float inp){
-  if(inp>=0){
-    return floor(inp);
+float truncate(float inp){
+  float unscaled_inp=inp/SCALE;
+  
+  if(unscaled_inp>=0){
+    return SCALE*floor(unscaled_inp);
   }
   else{
-    return ceil(inp);
+    return SCALE*ceil(unscaled_inp);
   }
 }
