@@ -8,6 +8,7 @@
 #include <random>
 #include <algorithm>
 #include <cassert>
+#include <fstream>
 
 
 using namespace std;
@@ -87,6 +88,17 @@ public:
 
 };
 
+
+vector<Checkpoint> v_CP;
+// int CPindex=0;
+
+float dist(const Vec2d<float>& P1,const Vec2d<float>& P2){
+  return sqrt(pow(P1.x-P2.x,2) + pow(P1.y-P2.y,2));
+}
+float dist(const Vec2d<float>& P1,const Vec2d<int>& P2){
+  return sqrt(pow(P1.x-P2.x,2) + pow(P1.y-P2.y,2));
+}
+
 class Car{
 public:
   Vec2d<float> pos,vel,target;
@@ -96,13 +108,17 @@ public:
   int CheckpointIndex;
   bool isAngleSet;
 public:
+  Car(){};
   Car(const Vec2d<float>& i_pos){
     pos=i_pos;
     target=i_pos;
     thrust=0;
-    ang_deg=0;
+    // ang_deg=0;
     CheckpointIndex=0;
-    isAngleSet=false;
+    isAngleSet=true;
+
+    float ang_rad=atan2(v_CP[0].pos.y-pos.y,v_CP[0].pos.x-pos.x);
+    ang_deg=degrees(ang_rad);
   }
 
   void update(const Vec2d<float>& i_Target,const int& i_thrust){
@@ -169,15 +185,6 @@ public:
 
 };
 
-vector<Checkpoint> v_CP;
-// int CPindex=0;
-
-float dist(const Vec2d<float>& P1,const Vec2d<float>& P2){
-  return sqrt(pow(P1.x-P2.x,2) + pow(P1.y-P2.y,2));
-}
-float dist(const Vec2d<float>& P1,const Vec2d<int>& P2){
-  return sqrt(pow(P1.x-P2.x,2) + pow(P1.y-P2.y,2));
-}
 
 
 int boolstr(string s){
@@ -208,6 +215,17 @@ std::uniform_int_distribution<int> udist_i(1,NMOVES*BITSPERACTION);
 std::uniform_real_distribution<float> udist_r(0.0,1.0);
 
 // GA functions
+void mutateChromosome(string& chromosome,const float& mutation_prob){
+  for(char& s: chromosome){
+    if(udist_r(generator) > mutation_prob)
+      continue;
+    if(s=='0')
+      s='1';
+    else
+      s='0';
+  }
+}
+
 pair<string,string> crossover(const string& parent1,const string& parent2,float r1,float r2){
     int l=parent1.length();
 
@@ -215,21 +233,11 @@ pair<string,string> crossover(const string& parent1,const string& parent2,float 
     // inevent of mutation, middle bit is flipped
     string child1=parent1;
     child1.replace(child1.begin()+0.5*l,child1.end(),parent2.begin()+0.5*l,parent2.end());
-    if(r1<MUTATIONPROB){
-        if(child1[0.5*l]=='0')
-            child1[0.5*l]='1';
-        else
-            child1[0.5*l]='0';
-    }
+    mutateChromosome(child1,MUTATIONPROB);
 
     string child2=parent2;
     child2.replace(child2.begin()+0.5*l,child2.end(),parent1.begin()+0.5*l,parent1.end());
-    if(r2<MUTATIONPROB){
-        if(child2[0.5*l]=='0')
-            child2[0.5*l]='1';
-        else
-            child2[0.5*l]='0';
-    }
+    mutateChromosome(child2,MUTATIONPROB);
 
     return pair<string,string>{child1,child2};
 }
@@ -283,31 +291,42 @@ float evaluateactions(string actionset,Car iC){
 
 int main(){
 
-  int checkpoints; // Count of checkpoints to read
-  cin >> checkpoints; cin.ignore();
+  ofstream fout;
+  fout.open("GApath.txt",ios::app);
+
+  // int checkpoints; // Count of checkpoints to read
+  // cin >> checkpoints; cin.ignore();
 
   // vector<Checkpoint> cp(checkpoints);
 
-  for (int i = 0; i < checkpoints; i++) {
-      int checkpointX; // Position X
-      int checkpointY; // Position Y
-      cin >> checkpointX >> checkpointY; cin.ignore();
-      v_CP.emplace_back(Checkpoint(Vec2d<int>(checkpointX,checkpointY),i));
-  }
+  // for (int i = 0; i < checkpoints; i++) {
+      int checkpointX=2757; // Position X
+      int checkpointY=4659; // Position Y
+      // cin >> checkpointX >> checkpointY; cin.ignore();
+      v_CP.emplace_back(Checkpoint(Vec2d<int>(checkpointX,checkpointY),0));
+  // }
 
+  Car Game_Car(Vec2d<float>(10353,1986));
+
+  int NUMGAMETURNS=1;
   // game loop
-  while (1) {
+  for (int _=0;_<NUMGAMETURNS;++_) {
+      cout << "Game turn = " << _ << " ";
       int checkpointIndex; // Index of the checkpoint to lookup in the checkpoints input, initially 0
       int x; // Position X
       int y; // Position Y
       int vx; // horizontal speed. Positive is right
       int vy; // vertical speed. Positive is downwards
       int angle; // facing angle of this car
-      cin >> checkpointIndex >> x >> y >> vx >> vy >> angle; cin.ignore();
+
+
 
       string bestcourse="";
-      // cout << cp[checkpointIndex].pos.x << " " << cp[checkpointIndex].pos.y << " " << 100;
-      // cout << " debug" << endl;
+      // cout << cp[checkpointIndex].pos.x << " " << cp[checkpointIndex].pos.y << " " << 100
+      checkpointIndex=0;
+      x=Game_Car.pos.x;   y=Game_Car.pos.y;
+      vx=Game_Car.vel.x;  vy=Game_Car.vel.y;
+      angle=Game_Car.ang_deg;
 
 
       if (bestcourse.empty()){
@@ -353,19 +372,49 @@ int main(){
           cerr << "Execution time = " << duration.count() << "ms" << endl;
 
           bestcourse=iPop.front();
+
+
+          // --------------------------
+          // Print final generation to a file
+          // format:
+            // x1 y1 x2 y2 x3 y3.....of course in chromo 1 - best
+            // x1 y1 x2 y2 x3 y3.....of course in chromo 2
+            // x1 y1 x2 y2 x3 y3.....of course in chromo 3
+            // ...
+          cout << "Printing last generation..." << endl;
+          for(int chromoinx=0;chromoinx<POPSIZE;++chromoinx){
+            string course=iPop[chromoinx];
+            Car PrintCar=Game_Car;
+            while(!course.empty()){
+              string thruststr=course.substr(0,THRUSTPORTION);
+              course.erase(0,THRUSTPORTION);
+
+              string angstr=course.substr(0,ANGLEPORTION);
+              course.erase(0,ANGLEPORTION);
+
+              int thrust = 3*boolstr(thruststr);
+
+              // there are 5 bits for angle. 0 index is for sign, other are value from 0-15
+              int anglechange=boolstr(angstr.substr(1,4));
+              if(angstr[0]=='1')
+                  anglechange*=-1;
+
+              PrintCar.update(anglechange,thrust);
+
+              fout << PrintCar.pos.x << " " << PrintCar.pos.y << " ";
+
+            }
+            fout << endl;
+          }
+          // --------------------------
       }
 
-      cerr << bestcourse.substr(0,THRUSTPORTION+ANGLEPORTION) << endl;
+      string nextmove=bestcourse.substr(0,THRUSTPORTION+ANGLEPORTION);
 
-      Car Game_Car(Vec2d<float>(x,y));
-      Game_Car.vel=Vec2d<float>(vx,vy);
-      Game_Car.ang_deg=angle;
-
-      if (!bestcourse.empty()){
-        string thruststr=bestcourse.substr(0,THRUSTPORTION);
-        bestcourse.erase(0,THRUSTPORTION);
-
-        string anglestr=bestcourse;
+      if (!nextmove.empty()){
+        string thruststr=nextmove.substr(0,THRUSTPORTION);
+        nextmove.erase(0,THRUSTPORTION);
+        string anglestr=nextmove;
 
         int thrust = 3*boolstr(thruststr);
 
@@ -374,26 +423,21 @@ int main(){
         if(anglestr[0]=='1')
             anglechange*=-1;
 
+
+
         Game_Car.update(anglechange,thrust);
-        cout << Game_Car.pos.x << " " << Game_Car.pos.y << " " << thrust << endl;
+        // cout << myCar.pos.x << " " << myCar.pos.y << " " << thrust << endl;
+
       }
       else{
-        cout << Game_Car.pos.x << " " << Game_Car.pos.y << " " << 10 << endl;
+        Game_Car.update(0,10);
+        // cout << myCar.pos.x << " " << myCar.pos.y << " " << 10 << endl;
       }
 
 
-      // cerr << "(" << x << " " << y << ") ";
-      // cerr << "(" << vx << " "<< vy << ") ";
-      // cerr << angle << endl;
+
   }
 
-/*
-  Car GA_Car(Vec2d<float>(10353,1986));
-  for(int i=0;i<20;++i){
-    GA_Car.update(Vec2d<float>(2757,4659),100);
-    GA_Car.debug();
-  }
-*/
-
+  fout.close();
   return 0;
 };

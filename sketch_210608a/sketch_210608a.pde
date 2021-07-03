@@ -3,29 +3,65 @@
 float SCALE=0.1;
 PImage bg;
 Car c;
-Checkpoint cp;
+Checkpoint[] cp;
 int COUNTER=0;
+String[] GAdata;
+int PATHLENGTH = 10;
 
 void setup(){
   size(1600,900);
   bg=loadImage("../img/road_1600x900.jpg");
   
-  c=new Car(new PVector(1035.3,198.6),0);
-  //cp=new Checkpoint(new PVector(100,100),1);
+  c=new Car(new PVector(10353*SCALE,1986*SCALE),0);
+  cp=new Checkpoint[2];
+  cp[0]=new Checkpoint(new PVector(2757*SCALE,4659*SCALE),1);
+  cp[1]=new Checkpoint(new PVector(3358*SCALE,2838*SCALE),2);
+  
   print("Initial");
   c.debug();
+  
+  GAdata=loadStrings("../C++/GApath.txt");
+  println("Numlines ="+GAdata.length);
+  
 }
 void draw(){
-  background(bg);
+  background(bg);  
+//    PVector[] pathpoints=new PVector[PATHLENGTH];
 
+  for(int line=0;line<GAdata.length;++line){
+    float[] linedata=float(split(GAdata[line],' '));
+      beginShape();
+      if(line==0){
+        stroke(255,0,0);        
+      }
+      else{
+        stroke(0);
+      }
+      noFill();
+    for (int valinx=0;valinx<linedata.length-1;valinx+=2){
+      vertex(linedata[valinx]*SCALE,linedata[valinx+1]*SCALE);
+    }
+      endShape();
+      fill(0,0,255);
+      noStroke();
+      circle(linedata[linedata.length-3]*SCALE,linedata[linedata.length-2]*SCALE,10);
+      //println(linedata[linedata.length-3]*SCALE+","+linedata[linedata.length-1]*SCALE);
+      //noFill();
+    
+  }
+  
+/*
   if (COUNTER < 20){
     c.update(new PVector(275.7,465.9),10);
     ++COUNTER;
     print("Counter-",COUNTER," ");
     c.debug();
   }
-    c.show();    
-    //cp.show();
+    */
+    //c.show();
+    for(int cpinx=0;cpinx<cp.length;++cpinx){
+      cp[cpinx].show();
+    }
 }
 void mouseClicked(){
   c.debug();
