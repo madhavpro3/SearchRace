@@ -14,7 +14,8 @@ void setup(){
   
   c=new Car(new PVector(10353*SCALE,1986*SCALE),0);
   cp=new Checkpoint[2];
-  cp[0]=new Checkpoint(new PVector(2757*SCALE,4659*SCALE),1);
+//  cp[0]=new Checkpoint(new PVector(2757*SCALE,4659*SCALE),1);
+  cp[0]=new Checkpoint(new PVector(8000*SCALE,5000*SCALE),1);
   cp[1]=new Checkpoint(new PVector(3358*SCALE,2838*SCALE),2);
   
   print("Initial");
@@ -165,7 +166,7 @@ class Car{
 class Checkpoint{
   PVector pos;
   int num;
-  int size=int(600*SCALE);
+  int size=int(1200*SCALE);
   int status; // -1 for done, 0 current, 1 for future
   
   Checkpoint(PVector ipos,int inum){

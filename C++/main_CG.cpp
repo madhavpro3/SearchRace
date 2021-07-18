@@ -72,11 +72,11 @@ public:
 
 class Checkpoint{
 public:
-  Vec2d<int> pos;
+  Vec2d<float> pos;
   short num;
   short status;// -1 for done, 0 current, 1 for future
 public:
-  Checkpoint(const Vec2d<int>& i_pos,const short& i_n){
+  Checkpoint(const Vec2d<float>& i_pos,const short& i_n){
     pos=i_pos;
     num=i_n;
     status=1;
@@ -92,12 +92,17 @@ public:
 vector<Checkpoint> v_CP;
 // int CPindex=0;
 
-float dist(const Vec2d<float>& P1,const Vec2d<float>& P2){
+template <typename t1,typename t2>
+float dist(const Vec2d<t1>& P1,const Vec2d<t2>& P2){
   return sqrt(pow(P1.x-P2.x,2) + pow(P1.y-P2.y,2));
 }
-float dist(const Vec2d<float>& P1,const Vec2d<int>& P2){
-  return sqrt(pow(P1.x-P2.x,2) + pow(P1.y-P2.y,2));
-}
+
+// float dist(const Vec2d<float>& P1,const Vec2d<float>& P2){
+//   return sqrt(pow(P1.x-P2.x,2) + pow(P1.y-P2.y,2));
+// }
+// float dist(const Vec2d<float>& P1,const Vec2d<int>& P2){
+//   return sqrt(pow(P1.x-P2.x,2) + pow(P1.y-P2.y,2));
+// }
 
 class Car{
 public:
@@ -199,11 +204,12 @@ int boolstr(string s){
 };
 
 // initialization
-const int NMOVES=10;
+const int NMOVES=50;
 const int BITSPERACTION=11; // 6 for thrust, 5 for angle. Thrust 1st, Angle 2nd
-const int POPSIZE=30;
-const float MUTATIONPROB=0.3;
-const int MAXGENERATIONS=10;
+const int POPSIZE=100;
+const float MUTATIONPROB_MAX=0.8;
+const float MUTATIONPROB_MIN=0.05;
+const int MAXGENERATIONS=25;
 
 // Thrust range = 0-200, DelAngle range = -18 - 18
 // Following bit encryption gives [0:3:189] thruststr, [-15:1:15] angle change
@@ -226,18 +232,21 @@ void mutateChromosome(string& chromosome,const float& mutation_prob){
   }
 }
 
-pair<string,string> crossover(const string& parent1,const string& parent2,float r1,float r2){
+pair<string,string> crossover(const string& parent1,const string& parent2,const float& r1,const float& r2,const int& GenNum){
     int l=parent1.length();
+
+    float Gen_MutationProb =  (GenNum-1)*(MUTATIONPROB_MAX-MUTATIONPROB_MIN)/(1-MAXGENERATIONS);
+    Gen_MutationProb+=MUTATIONPROB_MAX;
 
     // if p1=ab, p2=cd then children are ad,cb
     // inevent of mutation, middle bit is flipped
     string child1=parent1;
     child1.replace(child1.begin()+0.5*l,child1.end(),parent2.begin()+0.5*l,parent2.end());
-    mutateChromosome(child1,MUTATIONPROB);
+    mutateChromosome(child1,Gen_MutationProb);
 
     string child2=parent2;
     child2.replace(child2.begin()+0.5*l,child2.end(),parent1.begin()+0.5*l,parent1.end());
-    mutateChromosome(child2,MUTATIONPROB);
+    mutateChromosome(child2,Gen_MutationProb);
 
     return pair<string,string>{child1,child2};
 }
@@ -245,7 +254,6 @@ pair<string,string> crossover(const string& parent1,const string& parent2,float 
 
 float evaluateactions(string actionset,Car iC){
     vector<pair<int,int>> actions;
-    float actionscost=0;
 
     // decrypting chromosomes to actions
     while(actionset.size()>0){
@@ -269,20 +277,27 @@ float evaluateactions(string actionset,Car iC){
 
         actions.emplace_back(thrust,anglechange);
     }
+    float actionscost=0;
 
     // Evaluating sequence of actions
+    bool rm_isreachedgoal=false;
+    int actionnum=0;
     for(const pair<int,int> act:actions){
+        ++actionnum;
         int thrust=act.first;int del_ang_deg=act.second;
         iC.update(del_ang_deg,thrust);
         // actionscost+=evaluatestate(iC.pos,iC.CheckpointIndex);
 
-        float d = dist(iC.pos,v_CP[iC.CheckpointIndex].pos);
-        while (d <= 600){
-          iC.CheckpointIndex+=1;
-          d = dist(iC.pos,v_CP[iC.CheckpointIndex].pos);
-        }
-        actionscost+=d/(iC.CheckpointIndex+1);
+        float d = dist<float,float>(iC.pos,v_CP[iC.CheckpointIndex].pos);
 
+        // cost func 4: if d<600 d=0; actionscost=stepnum*def
+        if(d<600)
+          d=0;
+        // for(int i=iC.CheckpointIndex;i<v_CP.size()-1;++i){
+        //   actionscost += dist<int,int>(v_CP[i].pos,v_CP[i+1].pos);
+        // }
+
+        actionscost+=sqrt(actionnum)*d;
     }
 
     return actionscost;
@@ -292,7 +307,7 @@ float evaluateactions(string actionset,Car iC){
 int main(){
 
   ofstream fout;
-  fout.open("GApath.txt",ios::app);
+  fout.open("GApath.txt",ios::out);
 
   // int checkpoints; // Count of checkpoints to read
   // cin >> checkpoints; cin.ignore();
@@ -303,7 +318,13 @@ int main(){
       int checkpointX=2757; // Position X
       int checkpointY=4659; // Position Y
       // cin >> checkpointX >> checkpointY; cin.ignore();
-      v_CP.emplace_back(Checkpoint(Vec2d<int>(checkpointX,checkpointY),0));
+      v_CP.emplace_back(Checkpoint(Vec2d<float>(8000,5000),0));
+      // v_CP.emplace_back(Checkpoint(Vec2d<float>(2757,4659),0));
+      v_CP.emplace_back(Checkpoint(Vec2d<float>(3358,2838),1));
+      v_CP.emplace_back(Checkpoint(Vec2d<float>(8000,5000),0));
+      // v_CP.emplace_back(Checkpoint(Vec2d<float>(2757,4659),2));
+      v_CP.emplace_back(Checkpoint(Vec2d<float>(3358,2838),3));
+
   // }
 
   Car Game_Car(Vec2d<float>(10353,1986));
@@ -351,15 +372,15 @@ int main(){
               return evaluateactions(actionset_l,GA_Car) < evaluateactions(actionset_r,GA_Car);
           });
 
-          for(int ___=1;___<=MAXGENERATIONS;++___){
+          for(int GenNum=1;GenNum<=MAXGENERATIONS;++GenNum){
               for(int i=0;i<0.5*POPSIZE;++i){
-                  pair<string,string> children=crossover(iPop[i],iPop[0.5*POPSIZE-1-i],udist_r(generator),udist_r(generator));
+                  pair<string,string> children=crossover(iPop[i],iPop[0.5*POPSIZE-1-i],udist_r(generator),udist_r(generator),GenNum);
                   iPop.push_back(children.first);
                   iPop.push_back(children.second);
               };
 
               sort(iPop.begin(),iPop.end(),[=](const string& actionset_l,const string& actionset_r){
-                  return evaluateactions(actionset_l,GA_Car)<evaluateactions(actionset_r,GA_Car);
+                  return evaluateactions(actionset_l,GA_Car) < evaluateactions(actionset_r,GA_Car);
               });
               iPop.resize(POPSIZE);
           }
@@ -381,11 +402,15 @@ int main(){
             // x1 y1 x2 y2 x3 y3.....of course in chromo 2
             // x1 y1 x2 y2 x3 y3.....of course in chromo 3
             // ...
-          cout << "Printing last generation..." << endl;
+          // cout << "Printing last generation..." << endl;
+          cout << "Best action course " << endl;
+
           for(int chromoinx=0;chromoinx<POPSIZE;++chromoinx){
             string course=iPop[chromoinx];
             Car PrintCar=Game_Car;
+            int rm_movecount=0;
             while(!course.empty()){
+              ++rm_movecount;
               string thruststr=course.substr(0,THRUSTPORTION);
               course.erase(0,THRUSTPORTION);
 
@@ -403,8 +428,16 @@ int main(){
 
               fout << PrintCar.pos.x << " " << PrintCar.pos.y << " ";
 
+              if (chromoinx==0){
+                cout << rm_movecount << ":\tdelAng=" << anglechange << "\tthrust=" << thrust;
+                cout << "\t(" << PrintCar.pos.x << "," << PrintCar.pos.y << ")\t";
+                cout << dist<float,float>(PrintCar.pos,v_CP[PrintCar.CheckpointIndex].pos) << endl;
+              }
             }
             fout << endl;
+
+            float cost=evaluateactions(iPop[chromoinx],GA_Car);
+            cout << "Chromo " << chromoinx << "\tcost = " << cost << endl;
           }
           // --------------------------
       }

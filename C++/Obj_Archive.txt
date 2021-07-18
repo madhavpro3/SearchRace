@@ -1,0 +1,30 @@
+// Cost func 1: Dist to next checkpoint. If already close to next CP, then normalized dist to next CP
+// while (d <= 100){
+//   iC.CheckpointIndex+=1;
+//   d = dist(iC.pos,v_CP[iC.CheckpointIndex].pos);
+// }
+// actionscost+=d/(iC.CheckpointIndex+1);
+
+// Cost func 3: dist to next cp + Sum(distances between next CPs)
+// while (d <= 600){
+//   iC.CheckpointIndex+=1;
+//   d = dist<float,int>(iC.pos,v_CP[iC.CheckpointIndex].pos);
+// }
+
+// Costfunc intermediary
+// if(d < 600)
+//   rm_isreachedgoal=true;
+//
+// if(!rm_isreachedgoal)
+//   actionscost+=d;
+// else{
+//   if(d<600)
+//     actionscost+=d/3;
+//   else
+//     actionscost+=3*d;
+// }
+// for(int i=iC.CheckpointIndex;i<v_CP.size()-1;++i){
+//   actionscost += dist<int,int>(v_CP[i].pos,v_CP[i+1].pos);
+// }
+// if(iC.pos.x <= 0 || iC.pos.y<=0)
+//   actionscost*=2;
