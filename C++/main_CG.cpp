@@ -191,95 +191,25 @@ int boolstr(string s){
     return val;
 };
 
-// initialization
-const int NMOVES=10;
-const int BITSPERACTION=11; // 6 for thrust, 5 for angle. Thrust 1st, Angle 2nd
-const int POPSIZE=30;
-const float MUTATIONPROB=0.3;
-const int MAXGENERATIONS=10;
+// Astar algorithm or Beam Search (becoz you are only expanding limited nodes)
+//    Create a priority queue of all angle, thrust combinations = 200*37 = 7400
+//    Advance the car in each of them
+//    score = distance to target - distance travelled
+//    reorder the queue in decreasing order of score
+//    resize queue to 100?
+//    for each of the 100 positions, evaluate the 7400 combinations, score, reorder and resize
+//    repeat
 
-// Thrust range = 0-200, DelAngle range = -18 - 18
-// Following bit encryption gives [0:3:189] thruststr, [-15:1:15] angle change
-const int THRUSTPORTION=6;
-const int ANGLEPORTION=5;
+// A C++ priority queue cannot be resized
+// I need a sorted container that I can access on both ends. so that  when the contained reaches the size limit, I can
+// compare the latest value with the worst in the container, delete the last elem and push the new elem into its place.
+// A work around on using priority queue : push to a priority queue 100*7400 items, eval them
+// pop the top 100 - in a loop!! and repeat
+// better, use a vector, push all elems, sort and resize
 
-std::default_random_engine generator(0);
-std::uniform_int_distribution<int> udist_i(1,NMOVES*BITSPERACTION);
-std::uniform_real_distribution<float> udist_r(0.0,1.0);
-
-// GA functions
-pair<string,string> crossover(const string& parent1,const string& parent2,float r1,float r2){
-    int l=parent1.length();
-
-    // if p1=ab, p2=cd then children are ad,cb
-    // inevent of mutation, middle bit is flipped
-    string child1=parent1;
-    child1.replace(child1.begin()+0.5*l,child1.end(),parent2.begin()+0.5*l,parent2.end());
-    if(r1<MUTATIONPROB){
-        if(child1[0.5*l]=='0')
-            child1[0.5*l]='1';
-        else
-            child1[0.5*l]='0';
-    }
-
-    string child2=parent2;
-    child2.replace(child2.begin()+0.5*l,child2.end(),parent1.begin()+0.5*l,parent1.end());
-    if(r2<MUTATIONPROB){
-        if(child2[0.5*l]=='0')
-            child2[0.5*l]='1';
-        else
-            child2[0.5*l]='0';
-    }
-
-    return pair<string,string>{child1,child2};
+float astarscore(const Car& c,const Vec2d<int>& startpos,const Vec2d<int>& destpos){
+  return dist(c.pos,destpos) - dist(c.pos,startpos);
 }
-
-
-float evaluateactions(string actionset,Car iC){
-    vector<pair<int,int>> actions;
-    float actionscost=0;
-
-    // decrypting chromosomes to actions
-    while(actionset.size()>0){
-        string thruststr=actionset.substr(0,THRUSTPORTION);
-        actionset.erase(0,THRUSTPORTION);
-
-        // cerr << "here2" << endl;
-        assert(thruststr.size()==THRUSTPORTION);
-
-        string anglestr=actionset.substr(0,ANGLEPORTION);
-        actionset.erase(0,ANGLEPORTION);
-        // cerr << "here3" << endl;
-
-        assert(anglestr.size()==ANGLEPORTION);
-
-        int thrust = 3*boolstr(thruststr);
-
-        int anglechange=boolstr(anglestr.substr(1,4));
-        if(anglestr[0]=='1')
-            anglechange*=-1;
-
-        actions.emplace_back(thrust,anglechange);
-    }
-
-    // Evaluating sequence of actions
-    for(const pair<int,int> act:actions){
-        int thrust=act.first;int del_ang_deg=act.second;
-        iC.update(del_ang_deg,thrust);
-        // actionscost+=evaluatestate(iC.pos,iC.CheckpointIndex);
-
-        float d = dist(iC.pos,v_CP[iC.CheckpointIndex].pos);
-        while (d <= 600){
-          iC.CheckpointIndex+=1;
-          d = dist(iC.pos,v_CP[iC.CheckpointIndex].pos);
-        }
-        actionscost+=d/(iC.CheckpointIndex+1);
-
-    }
-
-    return actionscost;
-}
-
 
 int main(){
 
@@ -305,95 +235,53 @@ int main(){
       int angle; // facing angle of this car
       cin >> checkpointIndex >> x >> y >> vx >> vy >> angle; cin.ignore();
 
-      string bestcourse="";
-      // cout << cp[checkpointIndex].pos.x << " " << cp[checkpointIndex].pos.y << " " << 100;
-      // cout << " debug" << endl;
-
-
-      if (bestcourse.empty()){
-          Car GA_Car(Vec2d<float>(x,y));
-          GA_Car.vel=Vec2d<float>(vx,vy);
-          GA_Car.ang_deg=angle;
-
-          // Initializing all chromosomes to 0
-          auto start = chrono::high_resolution_clock::now();
-
-          vector<string> iPop(POPSIZE,string(NMOVES*BITSPERACTION,'0'));
-
-          // This changes the chromosomes to have 50% of 1s at random positions for all members in the population
-          for_each(iPop.begin(),iPop.end(),[&](string& actions){
-              for(int __=1;__ <=0.5*NMOVES*BITSPERACTION;++__){
-                  int setpos=udist_i(generator);
-                  actions[setpos]='1';
-              }
-          });
-
-          sort(iPop.begin(),iPop.end(),[=](const string& actionset_l,const string& actionset_r){
-              return evaluateactions(actionset_l,GA_Car) < evaluateactions(actionset_r,GA_Car);
-          });
-
-          for(int ___=1;___<=MAXGENERATIONS;++___){
-              for(int i=0;i<0.5*POPSIZE;++i){
-                  pair<string,string> children=crossover(iPop[i],iPop[0.5*POPSIZE-1-i],udist_r(generator),udist_r(generator));
-                  iPop.push_back(children.first);
-                  iPop.push_back(children.second);
-              };
-
-              sort(iPop.begin(),iPop.end(),[=](const string& actionset_l,const string& actionset_r){
-                  return evaluateactions(actionset_l,GA_Car)<evaluateactions(actionset_r,GA_Car);
-              });
-              iPop.resize(POPSIZE);
-          }
-
-          auto stop = chrono::high_resolution_clock::now();
-          auto duration = chrono::duration_cast<chrono::milliseconds>(stop - start);
-
-          // To get the value of duration use the count()
-          // member function on the duration object
-          cerr << "Execution time = " << duration.count() << "ms" << endl;
-
-          bestcourse=iPop.front();
-      }
-
-      cerr << bestcourse.substr(0,THRUSTPORTION+ANGLEPORTION) << endl;
-
-      Car Game_Car(Vec2d<float>(x,y));
-      Game_Car.vel=Vec2d<float>(vx,vy);
-      Game_Car.ang_deg=angle;
-
-      if (!bestcourse.empty()){
-        string thruststr=bestcourse.substr(0,THRUSTPORTION);
-        bestcourse.erase(0,THRUSTPORTION);
-
-        string anglestr=bestcourse;
-
-        int thrust = 3*boolstr(thruststr);
-
-        // there are 5 bits for angle. 0 index is for sign, other are value from 0-15
-        int anglechange=boolstr(anglestr.substr(1,4));
-        if(anglestr[0]=='1')
-            anglechange*=-1;
-
-        Game_Car.update(anglechange,thrust);
-        cout << Game_Car.pos.x << " " << Game_Car.pos.y << " " << thrust << endl;
-      }
-      else{
-        cout << Game_Car.pos.x << " " << Game_Car.pos.y << " " << 10 << endl;
-      }
-
-
-      // cerr << "(" << x << " " << y << ") ";
-      // cerr << "(" << vx << " "<< vy << ") ";
-      // cerr << angle << endl;
   }
 
-/*
-  Car GA_Car(Vec2d<float>(10353,1986));
-  for(int i=0;i<20;++i){
-    GA_Car.update(Vec2d<float>(2757,4659),100);
-    GA_Car.debug();
+  vector<pair<int,int>> angthrustpairs(7400);
+  int index=0;
+  for(int angleval=-18;angleval<=18;++angleval){
+    for(int thrustval=0;thrustval<=200;++thrustval){
+      angthrustpairs[index] = pair<int,int>(angleval,thrustval);
+      ++index;
+    }
   }
-*/
+
+  Vec2d<int> StartPos = v_CP[0];
+  Vec2d<int> DestPos = v_CP[CheckpointIndex];
+  // Beam Search
+  vector<Car> vBeam;
+  for (int i=0;i<angthrustpairs.size();++i){
+    Car c(StartPos);
+    c.update(angthrustpairs[i].first,angthrustpairs[i].second);
+    vBeam.push_back(c);
+  }
+
+  sort(vBeam.begin(),vBeam.end(),[&](const Car& lcar,const Car& rcar){
+    return astarscore(lcar,StartPos,DestPos) < astarscore(rcar,StartPos,DestPos);
+  });
+
+  vBeam.resize(100);
+  
+  for (int step=1;step<=3;++step){
+      for(int carinx=0;carinx<100;++carinx){
+
+        for (int i=0;i<angthrustpairs.size();++i){
+          Car c2=vBeam[carinx];
+          c2.update(angthrustpairs[i].first,angthrustpairs[i].second);
+          vBeam.push_back(c2);
+        }
+
+      }
+      vBeam.erase(vBeam.begin(),vBeam.begin()+100);
+
+      sort(vBeam.begin(),vBeam.end(),[&](const Car& lcar,const Car& rcar){
+        return astarscore(lcar,StartPos,DestPos) < astarscore(rcar,StartPos,DestPos);
+      });
+
+      vBeam.resize(100);
+  }
+
+
 
   return 0;
 };
